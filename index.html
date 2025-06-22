@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SPV-256 — Seed Phrase Visualizer</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0; padding: 0;
+    }
+
+/* Base layout and typography */
+     html, body {
+      overflow-x: hidden;
+      max-width: 900px;
+      height: 700px;
+      background: #000;
+      color: #fff;
+      font-family: monospace;
+      font-size: 16px;
+      line-height: 1.1;
+      padding-top: 2px;
+      perspective: 1000px;
+      margin: 0 auto;
+   }
+
+/* === Flip Container for Front/Back === */
+    #container {
+      width: 640px;
+      height: 640px;
+      margin: 0 auto;
+      position: relative;
+      transition: transform 0.8s;
+      transform-style: preserve-3d;
+      outline: 1px solid;
+      color: #fff;
+  }
+
+
+    #container.flipped {
+      transform: rotateY(180deg);
+    }
+
+/* === Shared Side Styling === */
+    .side {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      background: #000;
+      border-radius: 8px;
+      padding: 20px;
+      box-sizing: border-box;
+      overflow-y: auto;
+    }
+
+/* === Front Side Styling === */
+    #front {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+/* Back side styles */
+    #back {
+      transform: rotateY(180deg);
+      color: #fff;
+      padding-top: 0px;
+      font-size: 14px;
+      white-space: pre-wrap;
+    }
+
+/* === Button Styling === */
+    button {
+      font-family: Arial;
+      font-size: 14px;
+      background-color: #000;
+      color: #fff;
+      border: 1px solid #fff;
+      padding: 6px 12px;
+      margin: 1px 5px 0 5px;
+      cursor: pointer;
+      width: 120px;
+    }
+
+/* === Input and Textarea Group Styling === */
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 5px;
+    }
+
+    .input-group textarea {
+      width: 600px;
+      padding: 6px 5px 10px 5px;
+      resize: none;
+      text-align: center;
+      line-height: 1.2;
+      height: 90px;
+      font-size: 16px;
+      font-family: monospace;
+      background-color: #000;
+      color: #fff;
+      border: 1px solid #fff;
+      outline: none;
+    }
+
+    .input-group input[type="text"] {
+      width: 600px;
+      text-align: center;
+      font-family: monospace;
+      font-size: 14px;
+      padding: 6px 10px;
+      margin-top: 5px;
+      background-color: #000;
+      color: #fff;
+      border: 1px solid #fff;
+      outline: none;
+    }
+
+/* === Controls Block (Grid + Buttons) === */
+    .controls {
+      display: flex;
+      gap: 30px;
+      margin-top: 10px;
+    }
+
+  /* === Grid Container Box === */
+    .grid-wrapper {
+      padding: 10px;
+      border-radius: 8px;
+      background: #323232;
+      display: flex;
+      justify-content: center;
+      position: relative;
+    }
+
+  /* === Grid Layout === */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(16, 19px);
+      grid-template-rows: repeat(16, 19px);
+      gap: 1px;
+    }
+
+/* === Default Pixel Style (inactive = white) === */
+    .pixel {
+      width: 19px;
+      height: 19px;
+      background: white;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+ /* === Active Pixel Style (clicked = black) === */
+    .pixel.active {
+      background: black;
+    }
+
+/* === Color Selector and Panel === */
+    .side-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      margin-left: 10px;
+    }
+
+/* === Wrapper for Each Color Button + Hidden Input === */
+    .overlay-color-button {
+      position: relative;
+      width: 120px;
+      margin-bottom: 10px;
+    }
+
+/* === Transparent Color Input Positioned Over Button === */
+    .overlay-color-button input[type="color"] {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+/* === Hidden warning placeholder for pixel validation === */
+    #pixelWarning {
+      display: none;
+      position: absolute;
+      top: 10px;
+      left: 0;
+      width: 100%;
+      text-align: center;
+      font-size: 20px;
+      color: #ff0000;
+      z-index: 10;
+    }
+  </style>
+</head>
+
+<!-- Warning label -->
+<body>
+  <div id="container">
+
+<!-- === Title and Security Warning === -->
+    <div id="front" class="side">
+      <div class="input-group">
+        <label style="font-size: 24px; margin-bottom: 10px;">
+          Seed Phrase Visualizer.
+        </label>
+<!-- === Red Warning Text === -->
+        <div style="font-size: 14px; color: #f66; margin-bottom: 6px; font-family: monospace;">
+          Do not enter real wallet seed phrases online.
+        </div>
+<!-- === Logo Row === -->
+        <div style="display: flex; align-items: center; font-size: 18px; color: #fff; margin-bottom: 8px; width: 600px; justify-content: center;">
+  <img src="data:image/png;base64,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" 
+
+alt="SPV-256 crown" style="height: 24px; margin-right: 10px;">
+ SPV-256: 1 should be darker than 0.
+</div>
+
+<!-- === Seed Phrase Input Field === -->
+        <textarea id="mnemonicInput" placeholder="24-word seed phrase"></textarea>
+      </div>
+
+<!-- === Controls Section (Grid + Side Panel) === -->
+    <div class="controls">
+  <div class="grid-wrapper">
+    <div id="pixelWarning">1 should be darker than 0</div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+<!-- === BUTTON PANEL === -->
+  <div class="side-panel">
+    <div class="overlay-color-button">
+      <button>Color for 1</button>
+      <input type="color" id="colorOne" value="#000000">
+    </div>
+    <div class="overlay-color-button">
+      <button>Color for 0</button>
+      <input type="color" id="colorZero" value="#ffffff">
+    </div>
+    <div class="overlay-color-button">
+      <button>Grid Color</button>
+      <input type="color" id="gridBackground" value="#323232">
+    </div>
+    <div class="overlay-color-button">
+      <button onclick="clearGrid()">Clear</button>
+    </div>
+    <div class="overlay-color-button">
+      <button onclick="toggleTheme()">Theme</button>
+    </div>
+    <div class="overlay-color-button">
+      <button id="readmeButton">Readme</button>
+    </div>
+    <div class="overlay-color-button">
+      <button id="decoderButton">Decoder</button>
+      <input type="file" id="pngInput" accept="image/png" style="display:none">
+    </div>
+    <div class="overlay-color-button">
+      <button onclick="saveAsPNG()">Save PNG</button>
+    </div>
+  </div>
+</div>
+
+<!-- === Front Side: Input Form === -->
+      <div class="input-group" style="margin-top: 10px;">
+        <label style="font-size: 14px;">Enter HEX (64 characters):</label>
+        <input id="seedInput" type="text" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" maxlength="64">
+      </div>
+    </div>
+
+<!-- === Back Side: Readme / Output Panel === -->
+<div id="back" class="side" style="display: flex; align-items: center; justify-content: center; height: 100%; padding-top: 0px; text-align: center;">
+  <div style="display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%; max-width: 640px; color: #fff; font-family: monospace;">
+    
+    <div style="overflow-y: visible;">
+      <pre style="text-align: center;">
+SPV-256 — Seed Phrase Visualizer 256 bit
+
+SPV-256 is the world's first visualizer for BIP39 seed phrases.
+A visual tool that transforms cryptographic entropy into pixel art.
+Each PNG is the 64-character hex entropy of 
+a 24-word BIP39 Seed Phrase.
+Instructions
+Draw your 256-bit entropy using the pixel grid.
+You can choose colors for 1, 0, and the grid; 1 must be darker than 0.
+Input a 64-character hex to visualize the entropy and seed phrase.
+Or enter a 24-word BIP39 seed phrase to visualize its entropy.
+Invalid seed phrases will not be visualized.
+PNG (323×323 px) export doesn’t work on the blockchain.
+Exported PNG file is only 6–7 KB and can be losslessly compressed
+to ~350 bytes (–95%).
+Visit the website to save PNG.
+Airgap-ready
+Works fully offline — no internet required.
+The BIP39 wordlist is integrated.
+You can generate a secure Seed Phrase by flipping a coin 256 times.
+
+Website: <a href="https://www.crownspv.com" target="_blank" style="color:#ccc;">www.crownspv.com</a>
+Twitter: <a href="https://twitter.com/crownspv" target="_blank" style="color:#ccc;">@crownspv</a>
+GitHub: <a href="https://github.com/crownspv/seed-phrase-visualizer-256" target="_blank" style="color:#ccc;">github.com/crownspv/seed-phrase-visualizer-256</a>
+License: CC BY 4.0 — <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" style="color:#ccc;">creativecommons.org</a>
+Readme: <a href="https://github.com/crownspv/seed-phrase-visualizer-256/blob/main/spv-256-readme.html" target="_blank" style="color:#ccc;">spv-256-readme.html</a>
+<p><strong>Manifest "Complete Metamorphosis":</strong><br><a href="https://www.crownspv.com/manifest-complete-metamorphosis" target="_blank" style="color:#ccc;">www.crownspv.com/manifest-complete-metamorphosis</a></p>
+Gmail: crownspv@gmail.com
+
+Author: Aleksandr Yashchuk (2025)
+   </pre>
+    </div>
+<!-- === Back Button === -->
+    <button id="backButton" style="margin-top: 0px;">Back</button>
+
+  </div>
+</div>
+
+<!-- === Hidden Canvas for PNG Export === -->
+  <canvas id="canvas" width="323" height="323" style="display:none;"></canvas>
+
+<!-- === Script Start === -->
+   <script>
+    const wordlist = ["abandon", "ability", "able", "about", "above", "absent", "absorb", "abstract", "absurd", "abuse", "access", "accident", "account", "accuse", "achieve", "acid", "acoustic", "acquire", "across", "act", "action", "actor", "actress", "actual", "adapt", "add", "addict", "address", "adjust", "admit", "adult", "advance", "advice", "aerobic", "affair", "afford", "afraid", "again", "age", "agent", "agree", "ahead", "aim", "air", "airport", "aisle", "alarm", "album", "alcohol", "alert", "alien", "all", "alley", "allow", "almost", "alone", "alpha", "already", "also", "alter", "always", "amateur", "amazing", "among", "amount", "amused", "analyst", "anchor", "ancient", "anger", "angle", "angry", "animal", "ankle", "announce", "annual", "another", "answer", "antenna", "antique", "anxiety", "any", "apart", "apology", "appear", "apple", "approve", "april", "arch", "arctic", "area", "arena", "argue", "arm", "armed", "armor", "army", "around", "arrange", "arrest", "arrive", "arrow", "art", "artefact", "artist", "artwork", "ask", "aspect", "assault", "asset", "assist", "assume", "asthma", "athlete", "atom", "attack", "attend", "attitude", "attract", "auction", "audit", "august", "aunt", "author", "auto", "autumn", "average", "avocado", "avoid", "awake", "aware", "away", "awesome", "awful", "awkward", "axis", "baby", "bachelor", "bacon", "badge", "bag", "balance", "balcony", "ball", "bamboo", "banana", "banner", "bar", "barely", "bargain", "barrel", "base", "basic", "basket", "battle", "beach", "bean", "beauty", "because", "become", "beef", "before", "begin", "behave", "behind", "believe", "below", "belt", "bench", "benefit", "best", "betray", "better", "between", "beyond", "bicycle", "bid", "bike", "bind", "biology", "bird", "birth", "bitter", "black", "blade", "blame", "blanket", "blast", "bleak", "bless", "blind", "blood", "blossom", "blouse", "blue", "blur", "blush", "board", "boat", "body", "boil", "bomb", "bone", "bonus", "book", "boost", "border", "boring", "borrow", "boss", "bottom", "bounce", "box", "boy", "bracket", "brain", "brand", "brass", "brave", "bread", "breeze", "brick", "bridge", "brief", "bright", "bring", "brisk", "broccoli", "broken", "bronze", "broom", "brother", "brown", "brush", "bubble", "buddy", "budget", "buffalo", "build", "bulb", "bulk", "bullet", "bundle", "bunker", "burden", "burger", "burst", "bus", "business", "busy", "butter", "buyer", "buzz", "cabbage", "cabin", "cable", "cactus", "cage", "cake", "call", "calm", "camera", "camp", "can", "canal", "cancel", "candy", "cannon", "canoe", "canvas", "canyon", "capable", "capital", "captain", "car", "carbon", "card", "cargo", "carpet", "carry", "cart", "case", "cash", "casino", "castle", "casual", "cat", "catalog", "catch", "category", "cattle", "caught", "cause", "caution", "cave", "ceiling", "celery", "cement", "census", "century", "cereal", "certain", "chair", "chalk", "champion", "change", "chaos", "chapter", "charge", "chase", "chat", "cheap", "check", "cheese", "chef", "cherry", "chest", "chicken", "chief", "child", "chimney", "choice", "choose", "chronic", "chuckle", "chunk", "churn", "cigar", "cinnamon", "circle", "citizen", "city", "civil", "claim", "clap", "clarify", "claw", "clay", "clean", "clerk", "clever", "click", "client", "cliff", "climb", "clinic", "clip", "clock", "clog", "close", "cloth", "cloud", "clown", "club", "clump", "cluster", "clutch", "coach", "coast", "coconut", "code", "coffee", "coil", "coin", "collect", "color", "column", "combine", "come", "comfort", "comic", "common", "company", "concert", "conduct", "confirm", "congress", "connect", "consider", "control", "convince", "cook", "cool", "copper", "copy", "coral", "core", "corn", "correct", "cost", "cotton", "couch", "country", "couple", "course", "cousin", "cover", "coyote", "crack", "cradle", "craft", "cram", "crane", "crash", "crater", "crawl", "crazy", "cream", "credit", "creek", "crew", "cricket", "crime", "crisp", "critic", "crop", "cross", "crouch", "crowd", "crucial", "cruel", "cruise", "crumble", "crunch", "crush", "cry", "crystal", "cube", "culture", "cup", "cupboard", "curious", "current", "curtain", "curve", "cushion", "custom", "cute", "cycle", "dad", "damage", "damp", "dance", "danger", "daring", "dash", "daughter", "dawn", "day", "deal", "debate", "debris", "decade", "december", "decide", "decline", "decorate", "decrease", "deer", "defense", "define", "defy", "degree", "delay", "deliver", "demand", "demise", "denial", "dentist", "deny", "depart", "depend", "deposit", "depth", "deputy", "derive", "describe", "desert", "design", "desk", "despair", "destroy", "detail", "detect", "develop", "device", "devote", "diagram", "dial", "diamond", "diary", "dice", "diesel", "diet", "differ", "digital", "dignity", "dilemma", "dinner", "dinosaur", "direct", "dirt", "disagree", "discover", "disease", "dish", "dismiss", "disorder", "display", "distance", "divert", "divide", "divorce", "dizzy", "doctor", "document", "dog", "doll", "dolphin", "domain", "donate", "donkey", "donor", "door", "dose", "double", "dove", "draft", "dragon", "drama", "drastic", "draw", "dream", "dress", "drift", "drill", "drink", "drip", "drive", "drop", "drum", "dry", "duck", "dumb", "dune", "during", "dust", "dutch", "duty", "dwarf", "dynamic", "eager", "eagle", "early", "earn", "earth", "easily", "east", "easy", "echo", "ecology", "economy", "edge", "edit", "educate", "effort", "egg", "eight", "either", "elbow", "elder", "electric", "elegant", "element", "elephant", "elevator", "elite", "else", "embark", "embody", "embrace", "emerge", "emotion", "employ", "empower", "empty", "enable", "enact", "end", "endless", "endorse", "enemy", "energy", "enforce", "engage", "engine", "enhance", "enjoy", "enlist", "enough", "enrich", "enroll", "ensure", "enter", "entire", "entry", "envelope", "episode", "equal", "equip", "era", "erase", "erode", "erosion", "error", "erupt", "escape", "essay", "essence", "estate", "eternal", "ethics", "evidence", "evil", "evoke", "evolve", "exact", "example", "excess", "exchange", "excite", "exclude", "excuse", "execute", "exercise", "exhaust", "exhibit", "exile", "exist", "exit", "exotic", "expand", "expect", "expire", "explain", "expose", "express", "extend", "extra", "eye", "eyebrow", "fabric", "face", "faculty", "fade", "faint", "faith", "fall", "false", "fame", "family", "famous", "fan", "fancy", "fantasy", "farm", "fashion", "fat", "fatal", "father", "fatigue", "fault", "favorite", "feature", "february", "federal", "fee", "feed", "feel", "female", "fence", "festival", "fetch", "fever", "few", "fiber", "fiction", "field", "figure", "file", "film", "filter", "final", "find", "fine", "finger", "finish", "fire", "firm", "first", "fiscal", "fish", "fit", "fitness", "fix", "flag", "flame", "flash", "flat", "flavor", "flee", "flight", "flip", "float", "flock", "floor", "flower", "fluid", "flush", "fly", "foam", "focus", "fog", "foil", "fold", "follow", "food", "foot", "force", "forest", "forget", "fork", "fortune", "forum", "forward", "fossil", "foster", "found", "fox", "fragile", "frame", "frequent", "fresh", "friend", "fringe", "frog", "front", "frost", "frown", "frozen", "fruit", "fuel", "fun", "funny", "furnace", "fury", "future", "gadget", "gain", "galaxy", "gallery", "game", "gap", "garage", "garbage", "garden", "garlic", "garment", "gas", "gasp", "gate", "gather", "gauge", "gaze", "general", "genius", "genre", "gentle", "genuine", "gesture", "ghost", "giant", "gift", "giggle", "ginger", "giraffe", "girl", "give", "glad", "glance", "glare", "glass", "glide", "glimpse", "globe", "gloom", "glory", "glove", "glow", "glue", "goat", "goddess", "gold", "good", "goose", "gorilla", "gospel", "gossip", "govern", "gown", "grab", "grace", "grain", "grant", "grape", "grass", "gravity", "great", "green", "grid", "grief", "grit", "grocery", "group", "grow", "grunt", "guard", "guess", "guide", "guilt", "guitar", "gun", "gym", "habit", "hair", "half", "hammer", "hamster", "hand", "happy", "harbor", "hard", "harsh", "harvest", "hat", "have", "hawk", "hazard", "head", "health", "heart", "heavy", "hedgehog", "height", "hello", "helmet", "help", "hen", "hero", "hidden", "high", "hill", "hint", "hip", "hire", "history", "hobby", "hockey", "hold", "hole", "holiday", "hollow", "home", "honey", "hood", "hope", "horn", "horror", "horse", "hospital", "host", "hotel", "hour", "hover", "hub", "huge", "human", "humble", "humor", "hundred", "hungry", "hunt", "hurdle", "hurry", "hurt", "husband", "hybrid", "ice", "icon", "idea", "identify", "idle", "ignore", "ill", "illegal", "illness", "image", "imitate", "immense", "immune", "impact", "impose", "improve", "impulse", "inch", "include", "income", "increase", "index", "indicate", "indoor", "industry", "infant", "inflict", "inform", "inhale", "inherit", "initial", "inject", "injury", "inmate", "inner", "innocent", "input", "inquiry", "insane", "insect", "inside", "inspire", "install", "intact", "interest", "into", "invest", "invite", "involve", "iron", "island", "isolate", "issue", "item", "ivory", "jacket", "jaguar", "jar", "jazz", "jealous", "jeans", "jelly", "jewel", "job", "join", "joke", "journey", "joy", "judge", "juice", "jump", "jungle", "junior", "junk", "just", "kangaroo", "keen", "keep", "ketchup", "key", "kick", "kid", "kidney", "kind", "kingdom", "kiss", "kit", "kitchen", "kite", "kitten", "kiwi", "knee", "knife", "knock", "know", "lab", "label", "labor", "ladder", "lady", "lake", "lamp", "language", "laptop", "large", "later", "latin", "laugh", "laundry", "lava", "law", "lawn", "lawsuit", "layer", "lazy", "leader", "leaf", "learn", "leave", "lecture", "left", "leg", "legal", "legend", "leisure", "lemon", "lend", "length", "lens", "leopard", "lesson", "letter", "level", "liar", "liberty", "library", "license", "life", "lift", "light", "like", "limb", "limit", "link", "lion", "liquid", "list", "little", "live", "lizard", "load", "loan", "lobster", "local", "lock", "logic", "lonely", "long", "loop", "lottery", "loud", "lounge", "love", "loyal", "lucky", "luggage", "lumber", "lunar", "lunch", "luxury", "lyrics", "machine", "mad", "magic", "magnet", "maid", "mail", "main", "major", "make", "mammal", "man", "manage", "mandate", "mango", "mansion", "manual", "maple", "marble", "march", "margin", "marine", "market", "marriage", "mask", "mass", "master", "match", "material", "math", "matrix", "matter", "maximum", "maze", "meadow", "mean", "measure", "meat", "mechanic", "medal", "media", "melody", "melt", "member", "memory", "mention", "menu", "mercy", "merge", "merit", "merry", "mesh", "message", "metal", "method", "middle", "midnight", "milk", "million", "mimic", "mind", "minimum", "minor", "minute", "miracle", "mirror", "misery", "miss", "mistake", "mix", "mixed", "mixture", "mobile", "model", "modify", "mom", "moment", "monitor", "monkey", "monster", "month", "moon", "moral", "more", "morning", "mosquito", "mother", "motion", "motor", "mountain", "mouse", "move", "movie", "much", "muffin", "mule", "multiply", "muscle", "museum", "mushroom", "music", "must", "mutual", "myself", "mystery", "myth", "naive", "name", "napkin", "narrow", "nasty", "nation", "nature", "near", "neck", "need", "negative", "neglect", "neither", "nephew", "nerve", "nest", "net", "network", "neutral", "never", "news", "next", "nice", "night", "noble", "noise", "nominee", "noodle", "normal", "north", "nose", "notable", "note", "nothing", "notice", "novel", "now", "nuclear", "number", "nurse", "nut", "oak", "obey", "object", "oblige", "obscure", "observe", "obtain", "obvious", "occur", "ocean", "october", "odor", "off", "offer", "office", "often", "oil", "okay", "old", "olive", "olympic", "omit", "once", "one", "onion", "online", "only", "open", "opera", "opinion", "oppose", "option", "orange", "orbit", "orchard", "order", "ordinary", "organ", "orient", "original", "orphan", "ostrich", "other", "outdoor", "outer", "output", "outside", "oval", "oven", "over", "own", "owner", "oxygen", "oyster", "ozone", "pact", "paddle", "page", "pair", "palace", "palm", "panda", "panel", "panic", "panther", "paper", "parade", "parent", "park", "parrot", "party", "pass", "patch", "path", "patient", "patrol", "pattern", "pause", "pave", "payment", "peace", "peanut", "pear", "peasant", "pelican", "pen", "penalty", "pencil", "people", "pepper", "perfect", "permit", "person", "pet", "phone", "photo", "phrase", "physical", "piano", "picnic", "picture", "piece", "pig", "pigeon", "pill", "pilot", "pink", "pioneer", "pipe", "pistol", "pitch", "pizza", "place", "planet", "plastic", "plate", "play", "please", "pledge", "pluck", "plug", "plunge", "poem", "poet", "point", "polar", "pole", "police", "pond", "pony", "pool", "popular", "portion", "position", "possible", "post", "potato", "pottery", "poverty", "powder", "power", "practice", "praise", "predict", "prefer", "prepare", "present", "pretty", "prevent", "price", "pride", "primary", "print", "priority", "prison", "private", "prize", "problem", "process", "produce", "profit", "program", "project", "promote", "proof", "property", "prosper", "protect", "proud", "provide", "public", "pudding", "pull", "pulp", "pulse", "pumpkin", "punch", "pupil", "puppy", "purchase", "purity", "purpose", "purse", "push", "put", "puzzle", "pyramid", "quality", "quantum", "quarter", "question", "quick", "quit", "quiz", "quote", "rabbit", "raccoon", "race", "rack", "radar", "radio", "rail", "rain", "raise", "rally", "ramp", "ranch", "random", "range", "rapid", "rare", "rate", "rather", "raven", "raw", "razor", "ready", "real", "reason", "rebel", "rebuild", "recall", "receive", "recipe", "record", "recycle", "reduce", "reflect", "reform", "refuse", "region", "regret", "regular", "reject", "relax", "release", "relief", "rely", "remain", "remember", "remind", "remove", "render", "renew", "rent", "reopen", "repair", "repeat", "replace", "report", "require", "rescue", "resemble", "resist", "resource", "response", "result", "retire", "retreat", "return", "reunion", "reveal", "review", "reward", "rhythm", "rib", "ribbon", "rice", "rich", "ride", "ridge", "rifle", "right", "rigid", "ring", "riot", "ripple", "risk", "ritual", "rival", "river", "road", "roast", "robot", "robust", "rocket", "romance", "roof", "rookie", "room", "rose", "rotate", "rough", "round", "route", "royal", "rubber", "rude", "rug", "rule", "run", "runway", "rural", "sad", "saddle", "sadness", "safe", "sail", "salad", "salmon", "salon", "salt", "salute", "same", "sample", "sand", "satisfy", "satoshi", "sauce", "sausage", "save", "say", "scale", "scan", "scare", "scatter", "scene", "scheme", "school", "science", "scissors", "scorpion", "scout", "scrap", "screen", "script", "scrub", "sea", "search", "season", "seat", "second", "secret", "section", "security", "seed", "seek", "segment", "select", "sell", "seminar", "senior", "sense", "sentence", "series", "service", "session", "settle", "setup", "seven", "shadow", "shaft", "shallow", "share", "shed", "shell", "sheriff", "shield", "shift", "shine", "ship", "shiver", "shock", "shoe", "shoot", "shop", "short", "shoulder", "shove", "shrimp", "shrug", "shuffle", "shy", "sibling", "sick", "side", "siege", "sight", "sign", "silent", "silk", "silly", "silver", "similar", "simple", "since", "sing", "siren", "sister", "situate", "six", "size", "skate", "sketch", "ski", "skill", "skin", "skirt", "skull", "slab", "slam", "sleep", "slender", "slice", "slide", "slight", "slim", "slogan", "slot", "slow", "slush", "small", "smart", "smile", "smoke", "smooth", "snack", "snake", "snap", "sniff", "snow", "soap", "soccer", "social", "sock", "soda", "soft", "solar", "soldier", "solid", "solution", "solve", "someone", "song", "soon", "sorry", "sort", "soul", "sound", "soup", "source", "south", "space", "spare", "spatial", "spawn", "speak", "special", "speed", "spell", "spend", "sphere", "spice", "spider", "spike", "spin", "spirit", "split", "spoil", "sponsor", "spoon", "sport", "spot", "spray", "spread", "spring", "spy", "square", "squeeze", "squirrel", "stable", "stadium", "staff", "stage", "stairs", "stamp", "stand", "start", "state", "stay", "steak", "steel", "stem", "step", "stereo", "stick", "still", "sting", "stock", "stomach", "stone", "stool", "story", "stove", "strategy", "street", "strike", "strong", "struggle", "student", "stuff", "stumble", "style", "subject", "submit", "subway", "success", "such", "sudden", "suffer", "sugar", "suggest", "suit", "summer", "sun", "sunny", "sunset", "super", "supply", "supreme", "sure", "surface", "surge", "surprise", "surround", "survey", "suspect", "sustain", "swallow", "swamp", "swap", "swarm", "swear", "sweet", "swift", "swim", "swing", "switch", "sword", "symbol", "symptom", "syrup", "system", "table", "tackle", "tag", "tail", "talent", "talk", "tank", "tape", "target", "task", "taste", "tattoo", "taxi", "teach", "team", "tell", "ten", "tenant", "tennis", "tent", "term", "test", "text", "thank", "that", "theme", "then", "theory", "there", "they", "thing", "this", "thought", "three", "thrive", "throw", "thumb", "thunder", "ticket", "tide", "tiger", "tilt", "timber", "time", "tiny", "tip", "tired", "tissue", "title", "toast", "tobacco", "today", "toddler", "toe", "together", "toilet", "token", "tomato", "tomorrow", "tone", "tongue", "tonight", "tool", "tooth", "top", "topic", "topple", "torch", "tornado", "tortoise", "toss", "total", "tourist", "toward", "tower", "town", "toy", "track", "trade", "traffic", "tragic", "train", "transfer", "trap", "trash", "travel", "tray", "treat", "tree", "trend", "trial", "tribe", "trick", "trigger", "trim", "trip", "trophy", "trouble", "truck", "true", "truly", "trumpet", "trust", "truth", "try", "tube", "tuition", "tumble", "tuna", "tunnel", "turkey", "turn", "turtle", "twelve", "twenty", "twice", "twin", "twist", "two", "type", "typical", "ugly", "umbrella", "unable", "unaware", "uncle", "uncover", "under", "undo", "unfair", "unfold", "unhappy", "uniform", "unique", "unit", "universe", "unknown", "unlock", "until", "unusual", "unveil", "update", "upgrade", "uphold", "upon", "upper", "upset", "urban", "urge", "usage", "use", "used", "useful", "useless", "usual", "utility", "vacant", "vacuum", "vague", "valid", "valley", "valve", "van", "vanish", "vapor", "various", "vast", "vault", "vehicle", "velvet", "vendor", "venture", "venue", "verb", "verify", "version", "very", "vessel", "veteran", "viable", "vibrant", "vicious", "victory", "video", "view", "village", "vintage", "violin", "virtual", "virus", "visa", "visit", "visual", "vital", "vivid", "vocal", "voice", "void", "volcano", "volume", "vote", "voyage", "wage", "wagon", "wait", "walk", "wall", "walnut", "want", "warfare", "warm", "warrior", "wash", "wasp", "waste", "water", "wave", "way", "wealth", "weapon", "wear", "weasel", "weather", "web", "wedding", "weekend", "weird", "welcome", "west", "wet", "whale", "what", "wheat", "wheel", "when", "where", "whip", "whisper", "wide", "width", "wife", "wild", "will", "win", "window", "wine", "wing", "wink", "winner", "winter", "wire", "wisdom", "wise", "wish", "witness", "wolf", "woman", "wonder", "wood", "wool", "word", "work", "world", "worry", "worth", "wrap", "wreck", "wrestle", "wrist", "write", "wrong", "yard", "year", "yellow", "you", "young", "youth", "zebra", "zero", "zone", "zoo"]
+
+// === Init ===
+  const grid = document.getElementById("grid");
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+  const seedInput = document.getElementById("seedInput");
+  const mnemonicInput = document.getElementById("mnemonicInput");
+  const pixelElements = [];
+  let warningVisible = false;
+
+// === On Load: reset + draw grid ===
+  window.addEventListener("DOMContentLoaded", () => {
+    document.getElementById("container").classList.remove("flipped");
+    setTimeout(() => {
+      initializeGrid();
+    }, 0);
+  });
+
+// === Get binary from grid state ===
+  function getBinaryFromGrid() {
+    return pixelElements.map(p => p.classList.contains("active") ? '1' : '0').join('');
+  }
+
+// === Update HEX + seed phrase ===
+  function updateSeedFromGrid() {
+    const binary = getBinaryFromGrid();
+    const hex = BigInt('0b' + binary).toString(16).padStart(64, '0');
+    seedInput.value = hex;
+
+    if (wordlist && wordlist.length === 2048) {
+      const entropyBytes = [];
+      for (let i = 0; i < 256; i += 8) {
+        entropyBytes.push(parseInt(binary.slice(i, i + 8), 2));
+      }
+      crypto.subtle.digest("SHA-256", new Uint8Array(entropyBytes)).then(hashBuffer => {
+        const hashBytes = new Uint8Array(hashBuffer);
+        const checksumBits = hashBytes[0].toString(2).padStart(8, "0").slice(0, 8);
+        const fullBits = binary + checksumBits;
+
+        const words = [];
+        for (let i = 0; i < 264; i += 11) {
+          const segment = fullBits.slice(i, i + 11);
+          const index = parseInt(segment, 2);
+          words.push(wordlist[index] || "???");
+        }
+        mnemonicInput.value = words.join(" ");
+      });
+    }
+  }
+
+// === Create and render 16x16 pixel grid ===
+  function initializeGrid() {
+    grid.innerHTML = "";
+    pixelElements.length = 0;
+    for (let i = 0; i < 256; i++) {
+      const pixel = document.createElement("div");
+      pixel.classList.add("pixel");
+      pixel.dataset.index = i;
+      pixel.style.background = document.getElementById("colorZero").value;
+      pixel.addEventListener("click", () => {
+        pixel.classList.toggle("active");
+        pixel.style.background = pixel.classList.contains("active")
+          ? document.getElementById("colorOne").value
+          : document.getElementById("colorZero").value;
+        updateSeedFromGrid();
+      });
+      grid.appendChild(pixel);
+      pixelElements.push(pixel);
+    }
+  }
+
+// === Reset grid ===
+  function clearGrid() {
+    const colorZero = document.getElementById("colorZero").value;
+    pixelElements.forEach(p => {
+      p.classList.remove("active");
+      p.style.background = colorZero;
+    });
+    mnemonicInput.value = "";
+    seedInput.value = "";
+  }
+
+// === Save canvas as PNG (with color check) ===
+  function saveAsPNG() {
+    if (!isColorOneDarker()) {
+      if (warningVisible) return;
+      warningVisible = true;
+      const warningEl = document.getElementById("pixelWarning");
+      warningEl.style.display = "block";
+      setTimeout(() => {
+        warningEl.style.display = "none";
+        warningVisible = false;
+      }, 3000);
+      return;
+    }
+    const pixelSize = 19;
+    const gap = 1;
+    const gridSize = 16;
+    canvas.width = 323;
+    canvas.height = 323;
+    ctx.fillStyle = getComputedStyle(document.querySelector(".grid-wrapper")).backgroundColor;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    pixelElements.forEach((pixel, i) => {
+      const x = 2 + (i % gridSize) * (pixelSize + gap);
+      const y = 2 + Math.floor(i / gridSize) * (pixelSize + gap);
+      ctx.fillStyle = pixel.classList.contains("active")
+        ? document.getElementById("colorOne").value
+        : document.getElementById("colorZero").value;
+      ctx.fillRect(x, y, pixelSize, pixelSize);
+    });
+    const link = document.createElement("a");
+    link.download = "bpm-256.png";
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  }
+
+// === Check if color for 1 is darker than for 0 ===
+  function isColorOneDarker() {
+    const c1 = document.getElementById("colorOne").value;
+    const c0 = document.getElementById("colorZero").value;
+
+    function hexToRgb(hex) {
+      const bigint = parseInt(hex.slice(1), 16);
+      return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255];
+    }
+    function luminance(rgb) {
+      return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+    }
+    return luminance(hexToRgb(c1)) < luminance(hexToRgb(c0));
+  }
+
+// === Update pixel color on color change ===
+  document.getElementById("colorOne").addEventListener("input", () => {
+    pixelElements.forEach(p => {
+      if (p.classList.contains("active")) {
+        p.style.background = document.getElementById("colorOne").value;
+      }
+    });
+  });
+
+// === Update color for "0" pixels ===
+  document.getElementById("colorZero").addEventListener("input", () => {
+    pixelElements.forEach(p => {
+      if (!p.classList.contains("active")) {
+        p.style.background = document.getElementById("colorZero").value;
+      }
+    });
+  });
+
+// === Update background color of grid wrapper ===
+  document.getElementById("gridBackground").addEventListener("input", e => {
+    document.querySelector(".grid-wrapper").style.background = e.target.value;
+  });
+
+// === Convert hex input to binary and update pixels ===
+  seedInput.addEventListener("input", () => {
+    const hex = seedInput.value.trim().toLowerCase().replace(/[^a-f0-9]/g, '');
+    if (hex.length !== 64) return;
+    const binary = BigInt('0x' + hex).toString(2).padStart(256, '0');
+    for (let i = 0; i < 256; i++) {
+      const bit = binary[i];
+      const pixel = pixelElements[i];
+      if (bit === '1') {
+        pixel.classList.add("active");
+        pixel.style.background = document.getElementById("colorOne").value;
+      } else {
+        pixel.classList.remove("active");
+        pixel.style.background = document.getElementById("colorZero").value;
+      }
+    }
+    updateSeedFromGrid();
+  });
+
+// Readme button
+  document.getElementById("readmeButton").addEventListener("click", () => {
+    document.getElementById("container").classList.add("flipped");
+  });
+// Back button
+  document.getElementById("backButton").addEventListener("click", () => {
+    document.getElementById("container").classList.remove("flipped");
+  });
+
+// Decoder PNG
+  document.getElementById("decoderButton").addEventListener("click", () => {
+    document.getElementById("pngInput").click();
+  });
+
+// === Load and validate PNG file (must be 323x323) ===
+  document.getElementById("pngInput").addEventListener("change", function (e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function (event) {
+
+ // === Decode PNG into binary grid ===
+      const img = new Image();
+      img.onload = function () {
+        if (img.width !== 323 || img.height !== 323) {
+          alert("❌ PNG must be exactly 323×323 pixels.");
+          return;
+        }
+
+// === Extract bits from PNG ===
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = 323;
+        tempCanvas.height = 323;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.drawImage(img, 0, 0);
+
+        const data = tempCtx.getImageData(0, 0, 323, 323).data;
+        const bits = [];
+
+        const pixelSize = 19;
+        const gap = 1;
+        const gridSize = 16;
+
+// === Apply bits to grid ===
+        for (let y = 0; y < gridSize; y++) {
+          for (let x = 0; x < gridSize; x++) {
+            const px = 2 + x * (pixelSize + gap);
+            const py = 2 + y * (pixelSize + gap);
+            const idx = (py * 323 + px) * 4;
+            const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+            const brightness = (r + g + b) / 3;
+            bits.push(brightness < 128 ? '1' : '0');
+          }
+        }
+
+// === Apply parsed bits from PNG to grid ===
+        for (let i = 0; i < 256; i++) {
+          const bit = bits[i];
+          const pixel = pixelElements[i];
+          if (bit === '1') {
+            pixel.classList.add("active");
+            pixel.style.background = document.getElementById("colorOne").value;
+          } else {
+            pixel.classList.remove("active");
+            pixel.style.background = document.getElementById("colorZero").value;
+          }
+        }
+
+        updateSeedFromGrid();
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+// === Toggle dark/light theme on canvas ===
+  function toggleTheme() {
+    const front = document.getElementById('front');
+    front.style.filter = front.style.filter === 'brightness(80%)' ? 'brightness(100%)' : 'brightness(80%)';
+  }
+</script>
+</body>
+</html>
