@@ -573,6 +573,38 @@ Author: Aleksandr Yashchuk (2025)
     const front = document.getElementById('front');
     front.style.filter = front.style.filter === 'brightness(80%)' ? 'brightness(100%)' : 'brightness(80%)';
   }
+ initializeGrid();
+
+  mnemonicInput.addEventListener("input", () => {
+    const words = mnemonicInput.value.trim().toLowerCase().split(/\s+/);
+
+ // Check: must be 24 words and wordlist loaded
+    if (words.length !== 24 || !wordlist || wordlist.length !== 2048) return;
+
+    const indexes = words.map(word => wordlist.indexOf(word));
+    if (indexes.includes(-1)) return;
+
+// Convert 24 words → 256-bit entropy
+    let bits = indexes.map(i => i.toString(2).padStart(11, '0')).join('');
+    const entropyBits = bits.slice(0, 256);
+
+    const hex = BigInt('0b' + entropyBits).toString(16).padStart(64, '0');
+    seedInput.value = hex;
+
+    // Update hex and pixels
+    for(let i = 0; i < 256; i++) {
+      const bit = entropyBits[i];
+      const pixel = pixelElements[i];
+      if (bit === '1') {
+        pixel.classList.add("active");
+        pixel.style.background = document.getElementById("colorOne").value;
+      } else {
+        pixel.classList.remove("active");
+        pixel.style.background = document.getElementById("colorZero").value;
+      }
+    }
+  });
+
 </script>
 </body>
 </html>
