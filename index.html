@@ -336,7 +336,37 @@ Author: Aleksandr Yashchuk (2025)
       initializeGrid();
     }, 0);
   });
+  function isValidMnemonic(mnemonic, wordlist) {
+  const words = mnemonic.trim().split(/\s+/);
+  if (words.length !== 24) return false;
 
+  const indexes = [];
+  for (let w of words) {
+    const i = wordlist.indexOf(w);
+    if (i === -1) return false;
+    indexes.push(i);
+  }
+
+  // Build the binary string
+  const bits = indexes.map(i => i.toString(2).padStart(11, '0')).join('');
+  const entropyBits = bits.slice(0, -8);
+  const checksumBits = bits.slice(-8);
+
+ // Convert entropyBits to bytes
+  const bytes = [];
+  for (let i = 0; i < entropyBits.length; i += 8) {
+    bytes.push(parseInt(entropyBits.slice(i, i + 8), 2));
+  }
+
+  // SHA-256 of entropy
+  return crypto.subtle.digest("SHA-256", new Uint8Array(bytes)).then(buf => {
+    const hashBytes = new Uint8Array(buf);
+    const hashBits = Array.from(hashBytes)
+      .map(b => b.toString(2).padStart(8, '0'))
+      .join('');
+    return checksumBits === hashBits.slice(0, 8);
+  });
+}
 // === Get binary from grid state ===
   function getBinaryFromGrid() {
     return pixelElements.map(p => p.classList.contains("active") ? '1' : '0').join('');
@@ -576,23 +606,26 @@ Author: Aleksandr Yashchuk (2025)
  initializeGrid();
 
   mnemonicInput.addEventListener("input", () => {
-    const words = mnemonicInput.value.trim().toLowerCase().split(/\s+/);
+  const words = mnemonicInput.value.trim().toLowerCase().split(/\s+/);
 
- // Check: must be 24 words and wordlist loaded
-    if (words.length !== 24 || !wordlist || wordlist.length !== 2048) return;
+ // Check that the wordlist is loaded and there are 24 words
+  if (words.length !== 24 || !wordlist || wordlist.length !== 2048) return;
 
+  // First, check validity
+  isValidMnemonic(mnemonicInput.value, wordlist).then(valid => {
+    if (!valid) {
+      console.warn("❌ Invalid seed phrase – grid not updated");
+      return;
+    }
+
+    // If valid → update
     const indexes = words.map(word => wordlist.indexOf(word));
-    if (indexes.includes(-1)) return;
-
-// Convert 24 words → 256-bit entropy
     let bits = indexes.map(i => i.toString(2).padStart(11, '0')).join('');
     const entropyBits = bits.slice(0, 256);
-
     const hex = BigInt('0b' + entropyBits).toString(16).padStart(64, '0');
     seedInput.value = hex;
 
-    // Update hex and pixels
-    for(let i = 0; i < 256; i++) {
+    for (let i = 0; i < 256; i++) {
       const bit = entropyBits[i];
       const pixel = pixelElements[i];
       if (bit === '1') {
@@ -604,6 +637,8 @@ Author: Aleksandr Yashchuk (2025)
       }
     }
   });
+});
+
 
 </script>
 </body>
